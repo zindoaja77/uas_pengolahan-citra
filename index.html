@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biker OCR | Ekstrak Teks dari Foto & Stiker Motor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Racing+Sans+One&family=Russo+One&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@v4.0.2/dist/tesseract.min.js"></script>
+    
+    <style>
+        /* ==================== CSS STYLES ==================== */
+        :root {
+            --bike-red: #D22B2B;
+            --bike-black: #1A1A1A;
+            --bike-chrome: #C0C0C0;
+            --bike-leather: #8B4513;
+            --bike-asphalt: #333333;
+            --bike-orange: #FF6600;
+            --bike-glow: #FF4500;
+            --shadow-heavy: 5px 5px 15px rgba(0, 0, 0, 0.5);
+            --neon-glow: 0 0 10px var(--bike-glow);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: 
+                radial-gradient(circle at 20% 30%, #0A0A0A 0%, #1A1A1A 100%),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50,0 L60,40 L100,50 L60,60 L50,100 L40,60 L0,50 L40,40 Z" fill="%23D22B2B" opacity="0.05"/></svg>');
+            color: var(--bike-chrome);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(210, 43, 43, 0.03) 2px,
+                    rgba(210, 43, 43, 0.03) 4px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Efek Lampu Motor */
+        .bike-effects {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .headlight {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--bike-orange) 0%, transparent 70%);
+            opacity: 0.6;
+            filter: blur(30px);
+            animation: headlight-flicker 4s infinite ease-in-out;
+        }
+
+        .headlight:nth-child(1) {
+            width: 300px;
+            height: 300px;
+            top: 10%;
+            left: 5%;
+            animation-delay: 0s;
+        }
+
+        .headlight:nth-child(2) {
+            width: 250px;
+            height: 250px;
+            bottom: 15%;
+            right: 10%;
+            animation-delay: -2s;
+            animation-duration: 5s;
+        }
+
+        @keyframes headlight-flicker {
+            0%, 100% { 
+                transform: scale(1) translateY(0);
+                opacity: 0.3;
+            }
+            50% { 
+                transform: scale(1.3) translateY(-10px);
+                opacity: 0.7;
+            }
+        }
+
+        /* Jalur Aspal */
+        .road-lines {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .road-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, var(--bike-orange), transparent);
+            opacity: 0.1;
+            height: 2px;
+            width: 300px;
+            animation: road-drift 20s infinite linear;
+        }
+
+        .road-line:nth-child(1) {
+            top: 20%;
+            left: -300px;
+            animation-duration: 15s;
+        }
+
+        .road-line:nth-child(2) {
+            top: 40%;
+            left: -300px;
+            animation-duration: 20s;
+            animation-delay: -5s;
+        }
+
+        .road-line:nth-child(3) {
+            top: 60%;
+            left: -300px;
+            animation-duration: 25s;
+            animation-delay: -10s;
+        }
+
+        @keyframes road-drift {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(calc(100vw + 300px)); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header Bikers */
+        .biker-header {
+            text-align: center;
+            padding: 30px 0;
+            margin-bottom: 40px;
+            border-bottom: 3px solid var(--bike-red);
+            position: relative;
+        }
+
+        .title-badge {
+            font-family: 'Racing Sans One', cursive;
+            font-size: 80px;
+            color: var(--bike-red);
+            text-shadow: 
+                0 0 20px var(--bike-glow),
+                3px 3px 0 var(--bike-black);
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .subtitle-badge {
+            font-family: 'Russo One', sans-serif;
+            font-size: 24px;
+            color: var(--bike-chrome);
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Panel Custom */
+        .custom-panel {
+            background: 
+                linear-gradient(135deg, var(--bike-black) 0%, #2A2A2A 100%),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none" stroke="%23D22B2B" stroke-width="2" stroke-dasharray="5,5"/></svg>');
+            border: 10px solid transparent;
+            border-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none" stroke="%23FF6600" stroke-width="10"/></svg>') 30 stretch;
+            border-radius: 0;
+            padding: 40px;
+            margin-bottom: 40px;
+            position: relative;
+            box-shadow: 
+                var(--shadow-heavy),
+                inset 0 0 50px rgba(210, 43, 43, 0.2);
+        }
+
+        .custom-panel::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            background: linear-gradient(45deg, var(--bike-red), var(--bike-orange), var(--bike-black));
+            z-index: -1;
+            opacity: 0.2;
+            filter: blur(15px);
+        }
+
+        .panel-title {
+            font-family: 'Russo One', sans-serif;
+            font-size: 32px;
+            color: var(--bike-orange);
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px groove var(--bike-red);
+            text-align: center;
+            letter-spacing: 2px;
+            position: relative;
+            text-transform: uppercase;
+        }
+
+        /* Area Unggahan */
+        .garage-upload-area {
+            border: 8px dashed var(--bike-red);
+            background: rgba(26, 26, 26, 0.7);
+            padding: 60px 30px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 30px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .garage-upload-area:hover {
+            background: rgba(255, 102, 0, 0.1);
+            border-color: var(--bike-orange);
+            box-shadow: 0 0 30px rgba(255, 102, 0, 0.3);
+        }
+
+        .garage-upload-area.dragover {
+            background: rgba(255, 102, 0, 0.2);
+            border-color: var(--bike-orange);
+            animation: engine-pulse 1s infinite;
+        }
+
+        @keyframes engine-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 102, 0, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(255, 102, 0, 0.6); }
+        }
+
+        .upload-icon {
+            font-size: 80px;
+            color: var(--bike-orange);
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 0 var(--bike-black);
+        }
+
+        .upload-text {
+            font-family: 'Russo One', sans-serif;
+            font-size: 24px;
+            color: var(--bike-chrome);
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        .upload-hint {
+            color: var(--bike-chrome);
+            font-size: 16px;
+            margin-bottom: 25px;
+            font-style: italic;
+        }
+
+        /* Tombol Bikers */
+        .biker-btn {
+            background: linear-gradient(to bottom, var(--bike-red), var(--bike-black));
+            color: var(--bike-chrome);
+            border: 3px solid var(--bike-red);
+            padding: 18px 35px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .biker-btn:hover {
+            background: linear-gradient(to bottom, var(--bike-orange), var(--bike-red));
+            border-color: var(--bike-orange);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(255, 102, 0, 0.3);
+        }
+
+        .biker-btn:active {
+            transform: translateY(0);
+        }
+
+        .biker-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 102, 0, 0.3), transparent);
+            transition: 0.5s;
+        }
+
+        .biker-btn:hover::before {
+            left: 100%;
+        }
+
+        .biker-btn i {
+            margin-right: 10px;
+            color: var(--bike-orange);
+        }
+
+        /* Preview Gambar */
+        .custom-preview {
+            margin: 30px 0;
+            border: 10px solid var(--bike-red);
+            padding: 10px;
+            background: var(--bike-black);
+            display: none;
+            position: relative;
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .image-preview {
+            width: 100%;
+            display: block;
+            border: 3px inset var(--bike-red);
+        }
+
+        /* Kamera Bikers */
+        .biker-camera {
+            margin-top: 30px;
+            border: 5px groove var(--bike-red);
+            padding: 20px;
+            background: rgba(0,0,0,0.8);
+            display: none;
+        }
+
+        .camera-view {
+            width: 100%;
+            max-height: 500px;
+            background: #000;
+            margin-bottom: 20px;
+            border: 3px solid var(--bike-orange);
+            object-fit: contain;
+        }
+
+        /* Kontrol Resolusi Kamera */
+        .camera-resolution {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(26, 26, 26, 0.7);
+            border: 2px solid var(--bike-red);
+        }
+
+        .resolution-label {
+            color: var(--bike-orange);
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .resolution-select {
+            flex: 1;
+            padding: 8px;
+            background: var(--bike-black);
+            color: var(--bike-chrome);
+            border: 1px solid var(--bike-red);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+        }
+
+        .resolution-info {
+            color: var(--bike-chrome);
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        /* Kontrol */
+        .biker-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(26, 26, 26, 0.7);
+            border: 3px ridge var(--bike-red);
+        }
+
+        .control-group {
+            position: relative;
+        }
+
+        .control-label {
+            display: block;
+            color: var(--bike-orange);
+            margin-bottom: 10px;
+            font-family: 'Russo One', sans-serif;
+            font-size: 18px;
+            text-transform: uppercase;
+        }
+
+        .control-label i {
+            margin-right: 10px;
+            color: var(--bike-red);
+        }
+
+        select, input {
+            width: 100%;
+            padding: 15px;
+            background: var(--bike-black);
+            color: var(--bike-chrome);
+            border: 2px solid var(--bike-red);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--bike-orange);
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.5);
+        }
+
+        /* Area Hasil */
+        .result-area {
+            background: 
+                linear-gradient(to bottom, #2A2A2A, #1A1A1A),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><path d="M0,0 L100,0 L100,100 L0,100 Z" fill="none" stroke="%23FF6600" stroke-width="2" opacity="0.3"/></svg>');
+            color: var(--bike-chrome);
+            border: 10px solid transparent;
+            border-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="none" stroke="%23D22B2B" stroke-width="10"/></svg>') 30 stretch;
+            padding: 30px;
+            min-height: 400px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            box-shadow: 
+                inset 0 0 50px rgba(210, 43, 43, 0.2),
+                var(--shadow-heavy);
+            position: relative;
+        }
+
+        .result-area:empty::before {
+            content: "Hasil ekstraksi teks akan muncul di sini... ";
+            color: var(--bike-red);
+            font-style: italic;
+            text-align: center;
+            display: block;
+            padding-top: 150px;
+        }
+
+        /* Statistik */
+        .biker-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .stat-badge {
+            background: linear-gradient(135deg, var(--bike-red), var(--bike-black));
+            padding: 20px;
+            text-align: center;
+            border: 3px groove var(--bike-orange);
+            position: relative;
+        }
+
+        .stat-badge::before {
+            content: '⚡';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: var(--bike-orange);
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: var(--bike-orange);
+            text-shadow: 2px 2px 0 var(--bike-black);
+            font-family: 'Racing Sans One', cursive;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--bike-chrome);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Aksi */
+        .biker-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        /* Progress Bar */
+        .engine-progress {
+            margin: 30px 0;
+            background: var(--bike-black);
+            border: 3px inset var(--bike-red);
+            padding: 10px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: linear-gradient(to right, var(--bike-black), #333);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fuel {
+            height: 100%;
+            background: linear-gradient(90deg, var(--bike-red), var(--bike-orange), var(--bike-red));
+            width: 0%;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .progress-fuel::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: fuel-flow 2s infinite linear;
+        }
+
+        @keyframes fuel-flow {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Modal */
+        .biker-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-custom {
+            background: linear-gradient(135deg, var(--bike-black), #2A2A2A);
+            border: 10px solid var(--bike-red);
+            padding: 40px;
+            max-width: 800px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 0 50px var(--bike-orange);
+        }
+
+        /* Footer */
+        .biker-footer {
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 50px;
+            border-top: 3px solid var(--bike-red);
+            position: relative;
+        }
+
+        .footer-icons {
+            font-size: 40px;
+            color: var(--bike-orange);
+            margin-bottom: 20px;
+            letter-spacing: 10px;
+        }
+
+        .footer-text {
+            color: var(--bike-chrome);
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+
+        /* Responsif */
+        @media (max-width: 768px) {
+            .title-badge { font-size: 40px; }
+            .subtitle-badge { font-size: 16px; }
+            .custom-panel { padding: 20px; }
+            .biker-controls { grid-template-columns: 1fr; }
+            .biker-actions { grid-template-columns: 1fr; }
+            .camera-view { max-height: 300px; }
+            .biker-btn { padding: 12px 20px; font-size: 14px; }
+        }
+
+        @media (max-width: 480px) {
+            .title-badge { font-size: 32px; }
+            .subtitle-badge { font-size: 14px; }
+            .custom-panel { padding: 15px; }
+            .camera-view { max-height: 250px; }
+        }
+
+        /* Loading Animation */
+        .biker-loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .loading-icon {
+            font-size: 100px;
+            color: var(--bike-orange);
+            animation: spin 2s infinite linear;
+            margin-bottom: 30px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-family: 'Russo One', sans-serif;
+            font-size: 24px;
+            color: var(--bike-chrome);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Notifikasi Bikers */
+        .biker-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            max-width: 400px;
+            z-index: 1000;
+            animation: slide-in 0.5s ease;
+            background: linear-gradient(135deg, var(--bike-black), #2A2A2A);
+            border: 3px solid var(--bike-red);
+            padding: 20px;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        @keyframes slide-in {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Server Status */
+        .server-status {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(26, 26, 26, 0.9);
+            color: var(--bike-orange);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+            border: 1px solid var(--bike-red);
+            box-shadow: 0 0 10px rgba(210, 43, 43, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .server-status.online {
+            background: rgba(46, 139, 87, 0.9);
+            border-color: #2E8B57;
+        }
+
+        .server-status.offline {
+            background: rgba(210, 43, 43, 0.9);
+        }
+
+        .server-status.connecting {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Efek Lampu dan Jalan -->
+    <div class="bike-effects">
+        <div class="headlight"></div>
+        <div class="headlight"></div>
+    </div>
+    <div class="road-lines">
+        <div class="road-line"></div>
+        <div class="road-line"></div>
+        <div class="road-line"></div>
+    </div>
+
+    <!-- Server Status -->
+    <div class="server-status connecting" id="serverStatus">
+        <i class="fas fa-server"></i> <span id="statusText">Connecting to Flask Server...</span>
+    </div>
+
+    <div class="container">
+        <!-- Header Bikers -->
+        <header class="biker-header">
+            <h1 class="title-badge">BIKER OCR</h1>
+            <div class="subtitle-badge">EKSTRAK TEKS DARI FOTO & STIKER MOTOR</div>
+            <div style="margin-top: 20px; font-size: 24px; color: var(--bike-orange);">
+                <span></span> <span>⚙️</span> <span>🔥</span> <span>⚡</span> <span>🔧</span>
+            </div>
+            <div style="margin-top: 10px; font-size: 14px; color: var(--bike-chrome);">
+                Flask Server | PYTHON FLASK | Localhost:5000
+            </div>
+        </header>
+
+        <!-- Panel Utama -->
+        <div class="custom-panel">
+            <h2 class="panel-title">📸 BENGKEL SCANNER 📸</h2>
+            
+            <!-- Area Unggahan -->
+            <div class="garage-upload-area" id="uploadArea">
+                <div class="upload-icon">
+                    <i class="fas fa-motorcycle"></i>
+                </div>
+                <div class="upload-text">DROP FOTO MOTOR ATAU STIKER DI SINI</div>
+                <div class="upload-hint">Atau gunakan tombol di bawah untuk memilih file</div>
+                <button class="biker-btn" id="browseBtn">
+                    <i class="fas fa-folder-open"></i> PILIH FOTO
+                </button>
+                <button class="biker-btn" id="cameraBtn" style="margin-left: 15px;">
+                    <i class="fas fa-camera"></i> GUNAKAN KAMERA
+                </button>
+                <button class="biker-btn" id="serverUploadBtn" style="margin-left: 15px;">
+                    <i class="fas fa-cloud-upload-alt"></i> UPLOAD KE SERVER
+                </button>
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            </div>
+
+            <!-- Preview Gambar -->
+            <div class="custom-preview" id="imagePreviewContainer">
+                <div style="position: relative;">
+                    <img id="imagePreview" class="image-preview" alt="Preview Foto">
+                    <div id="imageInfo" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px;"></div>
+                </div>
+            </div>
+
+            <!-- Kamera -->
+            <div class="biker-camera" id="cameraContainer">
+                <div class="camera-resolution">
+                    <span class="resolution-label">RESOLUSI:</span>
+                    <select id="resolutionSelect" class="resolution-select">
+                        <option value="auto">Auto (Rekomendasi)</option>
+                        <option value="hd">HD (1280x720)</option>
+                        <option value="fullhd">Full HD (1920x1080)</option>
+                        <option value="ultrahd">4K (3840x2160)</option>
+                    </select>
+                    <span class="resolution-info" id="resolutionInfo"></span>
+                </div>
+                
+                <video class="camera-view" id="cameraView" autoplay playsinline></video>
+                <div style="display: flex; gap: 15px;">
+                    <button class="biker-btn" id="captureBtn">
+                        <i class="fas fa-camera-retro"></i> AMBIL FOTO
+                    </button>
+                    <button class="biker-btn" id="stopCameraBtn">
+                        <i class="fas fa-stop"></i> STOP KAMERA
+                    </button>
+                </div>
+            </div>
+
+            <!-- Kontrol OCR -->
+            <div class="biker-controls">
+                <div class="control-group">
+                    <label class="control-label">
+                        <i class="fas fa-language"></i> BAHASA TEKS:
+                    </label>
+                    <select id="languageSelect">
+                        <option value="eng">eng inggris</option>
+                        <option value="ind">🇮🇩 Indonesia</option>
+                        <option value="jpn">🇯🇵 Jepang</option>
+                        <option value="chi_sim">🇨🇳 China</option>
+                        <option value="kor">🇰🇷 Korea</option>
+                        <option value="rus">🇷🇺 Rusia</option>
+                        <option value="ara">🇸🇦 Arab</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">
+                        <i class="fas fa-sliders-h"></i> MODE SCAN:
+                    </label>
+                    <select id="precisionSelect">
+                        <option value="fast">⚡ Cepat (Racing Mode)</option>
+                        <option value="balanced">⚙️ Seimbang (Street Mode)</option>
+                        <option value="accurate">🎯 Akurat (Showroom Mode)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">
+                        <i class="fas fa-microchip"></i> PROCESSING:
+                    </label>
+                    <select id="processingMode">
+                        <option value="client">Client Side (Tesseract.js)</option>
+                        <option value="server">Server Side (Flask API)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="engine-progress" id="progressContainer">
+                <div style="margin-bottom: 10px; color: var(--bike-orange); font-family: 'Russo One', sans-serif;">
+                    <span id="progressText">Ready to scan...</span>
+                    <span id="progressPercent" style="float: right;">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fuel" id="progressFill"></div>
+                </div>
+            </div>
+
+            <!-- Tombol Proses -->
+            <div style="text-align: center; margin-top: 30px;">
+                <button class="biker-btn" id="processBtn" style="padding: 20px 50px; font-size: 22px;">
+                    <i class="fas fa-bolt"></i> SCAN TEKS SEKARANG!
+                </button>
+            </div>
+        </div>
+
+        <!-- Panel Hasil -->
+        <div class="custom-panel">
+            <h2 class="panel-title">SERVICE REPORT</h2>
+            
+            <div class="result-area" id="resultText" contenteditable="true">
+                Hasil ekstraksi teks akan muncul di sini...
+            </div>
+
+            <!-- Statistik -->
+            <div class="biker-stats" id="resultStats">
+                <div class="stat-badge">
+                    <div class="stat-value" id="charCount">0</div>
+                    <div class="stat-label">KARAKTER</div>
+                </div>
+                <div class="stat-badge">
+                    <div class="stat-value" id="wordCount">0</div>
+                    <div class="stat-label">KATA</div>
+                </div>
+                <div class="stat-badge">
+                    <div class="stat-value" id="lineCount">0</div>
+                    <div class="stat-label">BARIS</div>
+                </div>
+                <div class="stat-badge">
+                    <div class="stat-value" id="confidence">0%</div>
+                    <div class="stat-label">AKURASI</div>
+                </div>
+            </div>
+
+            <!-- Aksi -->
+            <div class="biker-actions">
+                <button class="biker-btn" id="copyBtn">
+                    <i class="fas fa-copy"></i> SALIN TEKS
+                </button>
+                <button class="biker-btn" id="downloadBtn">
+                    <i class="fas fa-download"></i> DOWNLOAD
+                </button>
+                <button class="biker-btn" id="speakBtn">
+                    <i class="fas fa-volume-up"></i> BACA TEKS
+                </button>
+                <button class="biker-btn" id="translateBtn">
+                    <i class="fas fa-exchange-alt"></i> TERJEMAHKAN
+                </button>
+                <button class="biker-btn" id="clearBtn">
+                    <i class="fas fa-trash"></i> HAPUS
+                </button>
+                <button class="biker-btn" id="apiTestBtn">
+                    <i class="fas fa-api"></i> TEST API
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Terjemahan -->
+        <div class="biker-modal" id="translateModal">
+            <div class="modal-custom">
+                <h2 style="color: var(--bike-orange); margin-bottom: 30px; text-align: center; font-family: 'Russo One', sans-serif;">
+                    🔧 TRANSLATE TOOL 🔧
+                </h2>
+                
+                <div class="control-group" style="margin-bottom: 20px;">
+                    <label class="control-label">FROM LANGUAGE:</label>
+                    <select id="translateFrom">
+                        <option value="auto">Auto Detect</option>
+                        <option value="en">English</option>
+                        <option value="id">Indonesian</option>
+                        <option value="ja">Japanese</option>
+                        <option value="zh">Chinese</option>
+                    </select>
+                </div>
+
+                <div class="control-group" style="margin-bottom: 20px;">
+                    <label class="control-label">TO LANGUAGE:</label>
+                    <select id="translateTo">
+                        <option value="id">Indonesian</option>
+                        <option value="en">English</option>
+                        <option value="ja">Japanese</option>
+                        <option value="zh">Chinese</option>
+                        <option value="ko">Korean</option>
+                        <option value="ru">Russian</option>
+                        <option value="ar">Arabic</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-top: 30px;">
+                    <button class="biker-btn" id="doTranslateBtn" style="flex: 1;">
+                        <i class="fas fa-bolt"></i> TRANSLATE
+                    </button>
+                    <button class="biker-btn" id="closeTranslateBtn" style="flex: 1;">
+                        <i class="fas fa-times"></i> CLOSE
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="biker-footer">
+            <div class="footer-icons">
+                <span>🏍️</span><span>⚙️</span><span>🔧</span><span>⚡</span><span>🔥</span>
+            </div>
+            <p class="footer-text">FLASK SERVER | PYTHON FLASK | BIKER OCR 2018</p>
+            <p class="footer-text">Server: <span id="serverUrl">http://localhost:5000</span></p>
+        </footer>
+    </div>
+
+    <!-- Loading Screen -->
+    <div class="biker-loading" id="loadingOverlay">
+        <div class="loading-icon">🏍️</div>
+        <div class="loading-text" id="loadingText">STARTING ENGINE...</div>
+    </div>
+
+    <script>
+        /* ==================== JAVASCRIPT ==================== */
+        // Konfigurasi Flask API
+        const FLASK_API = {
+            baseUrl: 'http://localhost:5000',
+            endpoints: {
+                upload: '/api/upload',
+                process: '/api/process',
+                translate: '/api/translate',
+                download: '/api/download',
+                health: '/api/health'
+            }
+        };
+
+        // Variabel global
+        let worker = null;
+        let currentImage = null;
+        let currentFileName = "";
+        let isProcessing = false;
+        let cameraStream = null;
+        let selectedResolution = 'auto';
+
+        // Cache DOM elements
+        const elements = {
+            uploadArea: document.getElementById('uploadArea'),
+            fileInput: document.getElementById('fileInput'),
+            browseBtn: document.getElementById('browseBtn'),
+            cameraBtn: document.getElementById('cameraBtn'),
+            serverUploadBtn: document.getElementById('serverUploadBtn'),
+            cameraContainer: document.getElementById('cameraContainer'),
+            cameraView: document.getElementById('cameraView'),
+            resolutionSelect: document.getElementById('resolutionSelect'),
+            resolutionInfo: document.getElementById('resolutionInfo'),
+            captureBtn: document.getElementById('captureBtn'),
+            stopCameraBtn: document.getElementById('stopCameraBtn'),
+            imagePreviewContainer: document.getElementById('imagePreviewContainer'),
+            imagePreview: document.getElementById('imagePreview'),
+            imageInfo: document.getElementById('imageInfo'),
+            processBtn: document.getElementById('processBtn'),
+            languageSelect: document.getElementById('languageSelect'),
+            precisionSelect: document.getElementById('precisionSelect'),
+            processingMode: document.getElementById('processingMode'),
+            resultText: document.getElementById('resultText'),
+            copyBtn: document.getElementById('copyBtn'),
+            downloadBtn: document.getElementById('downloadBtn'),
+            speakBtn: document.getElementById('speakBtn'),
+            translateBtn: document.getElementById('translateBtn'),
+            clearBtn: document.getElementById('clearBtn'),
+            apiTestBtn: document.getElementById('apiTestBtn'),
+            progressContainer: document.getElementById('progressContainer'),
+            progressFill: document.getElementById('progressFill'),
+            progressText: document.getElementById('progressText'),
+            progressPercent: document.getElementById('progressPercent'),
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            loadingText: document.getElementById('loadingText'),
+            resultStats: document.getElementById('resultStats'),
+            charCount: document.getElementById('charCount'),
+            wordCount: document.getElementById('wordCount'),
+            lineCount: document.getElementById('lineCount'),
+            confidence: document.getElementById('confidence'),
+            translateModal: document.getElementById('translateModal'),
+            translateFrom: document.getElementById('translateFrom'),
+            translateTo: document.getElementById('translateTo'),
+            doTranslateBtn: document.getElementById('doTranslateBtn'),
+            closeTranslateBtn: document.getElementById('closeTranslateBtn'),
+            serverStatus: document.getElementById('serverStatus'),
+            statusText: document.getElementById('statusText'),
+            serverUrl: document.getElementById('serverUrl')
+        };
+
+        // ==================== FLASK API FUNCTIONS ====================
+        
+        // Check server status
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${FLASK_API.baseUrl}${FLASK_API.endpoints.health}`);
+                if (response.ok) {
+                    updateServerStatus('online', 'Flask Server Online');
+                    elements.serverUrl.textContent = FLASK_API.baseUrl;
+                    return true;
+                }
+            } catch (error) {
+                updateServerStatus('offline', 'Flask Server Offline');
+                return false;
+            }
+        }
+
+        // Update server status display
+        function updateServerStatus(status, message) {
+            elements.serverStatus.className = `server-status ${status}`;
+            elements.statusText.textContent = message;
+        }
+
+        // Upload image to Flask server
+        async function uploadImageToServer(file) {
+            showNotification('Mengupload gambar ke server Flask...', 'info');
+            
+            try {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                
+                return new Promise((resolve, reject) => {
+                    reader.onload = async () => {
+                        const base64Image = reader.result;
+                        
+                        const response = await fetch(`${FLASK_API.baseUrl}${FLASK_API.endpoints.upload}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                image: base64Image
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            currentImage = `${FLASK_API.baseUrl}${data.url}`;
+                            currentFileName = data.filename;
+                            
+                            elements.imagePreview.src = currentImage;
+                            elements.imagePreviewContainer.style.display = 'block';
+                            elements.imageInfo.textContent = `Server: ${data.filename} (${formatFileSize(data.size)})`;
+                            
+                            showNotification(`Gambar berhasil diupload ke Flask server!`, 'success');
+                            resolve(data);
+                        } else {
+                            reject(data.error || 'Upload failed');
+                        }
+                    };
+                    
+                    reader.onerror = () => {
+                        reject('Failed to read file');
+                    };
+                });
+                
+            } catch (error) {
+                console.error('Server upload error:', error);
+                showNotification('Gagal upload ke server, menggunakan local mode', 'error');
+                throw error;
+            }
+        }
+
+        // Process OCR with Flask server
+        async function processOCRWithServer() {
+            if (!currentImage) {
+                showNotification('Tidak ada gambar untuk diproses!', 'error');
+                return;
+            }
+            
+            elements.loadingOverlay.style.display = 'flex';
+            elements.loadingText.textContent = 'Memproses dengan Flask server...';
+            elements.progressContainer.style.display = 'block';
+            updateProgressBar(30, 'Mengirim ke server...');
+            
+            try {
+                const language = elements.languageSelect.value;
+                const mode = elements.precisionSelect.value;
+                
+                const response = await fetch(`${FLASK_API.baseUrl}${FLASK_API.endpoints.process}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image_url: currentImage,
+                        language: language,
+                        mode: mode
+                    })
+                });
+                
+                updateProgressBar(60, 'Memproses OCR...');
+                const data = await response.json();
+                
+                if (data.success) {
+                    elements.resultText.textContent = data.text;
+                    updateTextStats(data.text, data.confidence);
+                    updateProgressBar(100, 'Selesai!');
+                    
+                    showNotification(`OCR berhasil diproses oleh Flask server!`, 'success');
+                    createEngineRev();
+                    playSoundEffect('success');
+                } else {
+                    throw new Error(data.error || 'OCR processing failed');
+                }
+                
+            } catch (error) {
+                console.error('Server OCR error:', error);
+                showNotification('Gagal memproses dengan server, menggunakan client-side...', 'warning');
+                
+                // Fallback to client-side OCR
+                processOCRClientSide();
+                return;
+            } finally {
+                setTimeout(() => {
+                    elements.loadingOverlay.style.display = 'none';
+                    elements.progressContainer.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        // Translate text using Flask server
+        async function translateWithServer(text, fromLang, toLang) {
+            try {
+                const response = await fetch(`${FLASK_API.baseUrl}${FLASK_API.endpoints.translate}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        from: fromLang,
+                        to: toLang
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    return data.translated;
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                console.error('Translation error:', error);
+                throw error;
+            }
+        }
+
+        // Download text from Flask server
+        async function downloadFromServer(text, filename) {
+            try {
+                const response = await fetch(`${FLASK_API.baseUrl}${FLASK_API.endpoints.download}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        filename: filename
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Server download error:', error);
+                return false;
+            }
+        }
+
+        // ==================== CLIENT-SIDE FUNCTIONS ====================
+        
+        // Process OCR client-side with Tesseract.js
+        async function processOCRClientSide() {
+            if (!currentImage) {
+                showNotification('Tidak ada gambar untuk diproses!', 'error');
+                return;
+            }
+
+            if (isProcessing) return;
+            isProcessing = true;
+
+            elements.loadingOverlay.style.display = 'flex';
+            elements.progressContainer.style.display = 'block';
+            elements.loadingText.textContent = 'Starting engine...';
+            
+            const language = elements.languageSelect.value;
+            const precision = elements.precisionSelect.value;
+            
+            try {
+                if (!worker) {
+                    worker = await Tesseract.createWorker({
+                        logger: updateProgress,
+                        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@v4.0.2/dist/worker.min.js',
+                        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v4.0.2/tesseract-core.wasm.js',
+                    });
+                }
+
+                await worker.loadLanguage(language);
+                await worker.initialize(language);
+                
+                if (precision === 'accurate') {
+                    await worker.setParameters({
+                        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                        tessedit_char_whitelist: '',
+                        preserve_interword_spaces: '1',
+                    });
+                } else if (precision === 'balanced') {
+                    await worker.setParameters({
+                        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                    });
+                }
+
+                elements.loadingText.textContent = 'Scanning text...';
+                const { data } = await worker.recognize(currentImage);
+                
+                elements.resultText.textContent = data.text;
+                updateTextStats(data.text, data.confidence);
+                
+                showNotification(`Berhasil mengekstrak teks dari gambar!`, 'success');
+                createEngineRev();
+                playSoundEffect('success');
+                
+            } catch (error) {
+                console.error('OCR Error:', error);
+                showNotification('Gagal memproses gambar! Coba gambar yang lebih jelas.', 'error');
+                elements.resultText.textContent = 'Terjadi kesalahan saat memproses gambar. Coba dengan gambar yang lebih jelas atau pencahayaan yang lebih baik.';
+                playSoundEffect('error');
+            } finally {
+                elements.loadingOverlay.style.display = 'none';
+                elements.progressContainer.style.display = 'none';
+                isProcessing = false;
+            }
+        }
+
+        // Update progress bar
+        function updateProgress(message) {
+            if (message.status === 'recognizing text') {
+                const progress = Math.min(Math.round(message.progress * 100), 100);
+                updateProgressBar(progress, messages[Math.min(Math.floor(progress / 20), 4)]);
+            }
+        }
+
+        function updateProgressBar(percent, text) {
+            elements.progressFill.style.width = `${percent}%`;
+            elements.progressPercent.textContent = `${percent}%`;
+            elements.progressText.textContent = text;
+            elements.loadingText.textContent = text;
+        }
+
+        // Update text statistics
+        function updateTextStats(text, confidence = 0) {
+            if (!text || text.includes('Hasil ekstraksi')) {
+                elements.resultStats.style.display = 'none';
+                return;
+            }
+            
+            const charCount = text.length;
+            const wordCount = text.trim().split(/\s+/).filter(word => word.length > 0).length;
+            const lineCount = text.split('\n').filter(line => line.trim().length > 0).length;
+            const confPercent = Math.round(confidence);
+            
+            animateCount(elements.charCount, 0, charCount, 1000);
+            animateCount(elements.wordCount, 0, wordCount, 1000);
+            animateCount(elements.lineCount, 0, lineCount, 1000);
+            animateCount(elements.confidence, 0, confPercent, 1000);
+            
+            elements.resultStats.style.display = 'grid';
+        }
+
+        // Animate counting
+        function animateCount(element, start, end, duration) {
+            const range = end - start;
+            const startTime = Date.now();
+            
+            function updateNumber() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + range * progress);
+                element.textContent = element === elements.confidence ? `${current}%` : current.toLocaleString();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateNumber);
+                }
+            }
+            
+            updateNumber();
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // ==================== EVENT HANDLERS ====================
+        
+        // Initialize event listeners
+        function initEventListeners() {
+            // File handling
+            elements.browseBtn.addEventListener('click', () => elements.fileInput.click());
+            elements.fileInput.addEventListener('change', handleImageUpload);
+            elements.serverUploadBtn.addEventListener('click', () => elements.fileInput.click());
+            
+            // Camera handling
+            elements.cameraBtn.addEventListener('click', startCamera);
+            elements.captureBtn.addEventListener('click', captureImage);
+            elements.stopCameraBtn.addEventListener('click', stopCamera);
+            
+            // OCR Processing
+            elements.processBtn.addEventListener('click', processOCR);
+            
+            // Result actions
+            elements.copyBtn.addEventListener('click', copyText);
+            elements.downloadBtn.addEventListener('click', downloadText);
+            elements.speakBtn.addEventListener('click', speakText);
+            elements.translateBtn.addEventListener('click', showTranslateModal);
+            elements.clearBtn.addEventListener('click', clearResults);
+            elements.apiTestBtn.addEventListener('click', testAPI);
+            
+            // Translation modal
+            elements.doTranslateBtn.addEventListener('click', translateText);
+            elements.closeTranslateBtn.addEventListener('click', () => {
+                elements.translateModal.style.display = 'none';
+            });
+            
+            // Drag and drop
+            elements.uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.uploadArea.classList.add('dragover');
+                createEngineEffect(e.clientX, e.clientY);
+            });
+            
+            elements.uploadArea.addEventListener('dragleave', () => {
+                elements.uploadArea.classList.remove('dragover');
+            });
+            
+            elements.uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.uploadArea.classList.remove('dragover');
+                
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    handleImageFile(file, true);
+                    createEngineRev();
+                } else {
+                    showNotification('Hanya file gambar yang bisa diproses!', 'error');
+                }
+            });
+            
+            // Resolution select
+            elements.resolutionSelect.addEventListener('change', (e) => {
+                selectedResolution = e.target.value;
+                if (cameraStream) {
+                    restartCameraWithResolution();
+                }
+            });
+        }
+
+        // Handle image upload
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const mode = elements.processingMode.value;
+                
+                if (mode === 'server') {
+                    uploadImageToServer(file).catch(error => {
+                        handleImageFile(file, false);
+                    });
+                } else {
+                    handleImageFile(file, false);
+                }
+            }
+        }
+
+        // Handle image file
+        function handleImageFile(file, fromDrop = false) {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                currentImage = e.target.result;
+                currentFileName = file.name;
+                
+                elements.imagePreview.src = currentImage;
+                elements.imagePreviewContainer.style.display = 'block';
+                elements.imageInfo.textContent = `Local: ${file.name} (${formatFileSize(file.size)})`;
+                
+                if (cameraStream) {
+                    stopCamera();
+                }
+                
+                clearResults();
+                
+                if (fromDrop) {
+                    elements.imagePreviewContainer.style.animation = 'none';
+                    setTimeout(() => {
+                        elements.imagePreviewContainer.style.animation = 'engine-pulse 1s';
+                    }, 10);
+                }
+                
+                showNotification(`Foto "${file.name}" berhasil dimuat!`, 'success');
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // Main OCR processing function
+        async function processOCR() {
+            const mode = elements.processingMode.value;
+            
+            if (mode === 'server') {
+                const isOnline = await checkServerStatus();
+                if (!isOnline) {
+                    showNotification('Flask server offline, menggunakan client-side OCR', 'warning');
+                    elements.processingMode.value = 'client';
+                    processOCRClientSide();
+                    return;
+                }
+                await processOCRWithServer();
+            } else {
+                await processOCRClientSide();
+            }
+        }
+
+        // Copy text to clipboard
+        function copyText() {
+            const text = elements.resultText.textContent;
+            if (!text || text.includes('Hasil ekstraksi')) {
+                showNotification('Tidak ada teks untuk disalin!', 'error');
+                return;
+            }
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    showNotification('Teks berhasil disalin!', 'success');
+                    elements.copyBtn.innerHTML = '<i class="fas fa-check"></i> COPIED!';
+                    setTimeout(() => {
+                        elements.copyBtn.innerHTML = '<i class="fas fa-copy"></i> SALIN TEKS';
+                    }, 2000);
+                    playSoundEffect('copy');
+                })
+                .catch(() => {
+                    showNotification('Gagal menyalin teks', 'error');
+                });
+        }
+
+        // Download text
+        async function downloadText() {
+            const text = elements.resultText.textContent;
+            if (!text || text.includes('Hasil ekstraksi')) {
+                showNotification('Tidak ada teks untuk diunduh!', 'error');
+                return;
+            }
+
+            const filename = `biker_ocr_${new Date().getTime()}.txt`;
+            
+            // Try server download first if in server mode
+            if (elements.processingMode.value === 'server') {
+                const success = await downloadFromServer(text, filename);
+                if (success) {
+                    showNotification('Teks berhasil diunduh dari server!', 'success');
+                    return;
+                }
+            }
+            
+            // Client-side download
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Teks berhasil diunduh!', 'success');
+            playSoundEffect('download');
+        }
+
+        // Text to speech
+        function speakText() {
+            const text = elements.resultText.textContent;
+            if (!text || text.includes('Hasil ekstraksi')) {
+                showNotification('Tidak ada teks untuk dibaca!', 'error');
+                return;
+            }
+
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'id-ID';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                
+                elements.speakBtn.innerHTML = '<i class="fas fa-volume-up"></i> READING...';
+                utterance.onend = () => {
+                    elements.speakBtn.innerHTML = '<i class="fas fa-volume-up"></i> BACA TEKS';
+                };
+                
+                speechSynthesis.speak(utterance);
+                showNotification('Membaca teks...', 'info');
+                playSoundEffect('speak');
+            } else {
+                showNotification('Browser tidak mendukung text-to-speech!', 'error');
+            }
+        }
+
+        // Show translate modal
+        function showTranslateModal() {
+            const text = elements.resultText.textContent;
+            if (!text || text.includes('Hasil ekstraksi')) {
+                showNotification('Tidak ada teks untuk diterjemahkan!', 'error');
+                return;
+            }
+            
+            elements.translateModal.style.display = 'flex';
+            playSoundEffect('modal');
+        }
+
+        // Translate text
+        async function translateText() {
+            const text = elements.resultText.textContent;
+            if (!text) return;
+            
+            const fromLang = elements.translateFrom.value;
+            const toLang = elements.translateTo.value;
+            
+            elements.loadingOverlay.style.display = 'flex';
+            elements.loadingText.textContent = 'Translating...';
+            
+            try {
+                let translatedText;
+                
+                if (elements.processingMode.value === 'server') {
+                    translatedText = await translateWithServer(text, fromLang, toLang);
+                } else {
+                    // Use MyMemory API as fallback
+                    const response = await fetch(
+                        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`
+                    );
+                    const data = await response.json();
+                    translatedText = data.responseData.translatedText;
+                }
+                
+                elements.resultText.textContent = translatedText;
+                showNotification('Teks berhasil diterjemahkan!', 'success');
+                playSoundEffect('success');
+                
+            } catch (error) {
+                console.error('Translation error:', error);
+                showNotification('Gagal menerjemahkan teks!', 'error');
+                playSoundEffect('error');
+            } finally {
+                elements.loadingOverlay.style.display = 'none';
+                elements.translateModal.style.display = 'none';
+            }
+        }
+
+        // Clear results
+        function clearResults() {
+            elements.resultText.textContent = 'Hasil ekstraksi teks akan muncul di sini...';
+            elements.resultStats.style.display = 'none';
+            showNotification('Hasil telah dihapus!', 'info');
+            playSoundEffect('clear');
+        }
+
+        // Test API connection
+        async function testAPI() {
+            showNotification('Testing Flask API connection...', 'info');
+            
+            try {
+                const response = await fetch(`${FLASK_API.baseUrl}${FLASK_API.endpoints.health}`);
+                const data = await response.json();
+                
+                showNotification(`Flask API Status: ${data.status}`, 'success');
+                
+                elements.resultText.textContent = `FLASK API TEST RESULTS:\n\n` +
+                    `Status: ${data.status}\n` +
+                    `Service: ${data.service}\n` +
+                    `Version: ${data.version}\n` +
+                    `Timestamp: ${data.timestamp}\n\n` +
+                    `Available Endpoints:\n` +
+                    Object.entries(data.endpoints).map(([endpoint, desc]) => `  ${endpoint}: ${desc}`).join('\n');
+                
+            } catch (error) {
+                showNotification('Flask API Test Failed!', 'error');
+            }
+        }
+
+        // ==================== CAMERA FUNCTIONS ====================
+        
+        // Start camera
+        async function startCamera() {
+            try {
+                // Stop existing stream if any
+                if (cameraStream) {
+                    stopCamera();
+                }
+                
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                elements.cameraView.srcObject = cameraStream;
+                elements.cameraContainer.style.display = 'block';
+                elements.uploadArea.style.display = 'none';
+                
+                await elements.cameraView.play();
+                showNotification('Kamera berhasil diaktifkan!', 'success');
+                
+            } catch (err) {
+                console.error('Camera error:', err);
+                showNotification('Gagal mengakses kamera! Periksa izin kamera.', 'error');
+            }
+        }
+
+        // Stop camera
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+                elements.cameraView.srcObject = null;
+                elements.cameraContainer.style.display = 'none';
+                elements.uploadArea.style.display = 'block';
+            }
+        }
+
+        // Restart camera with new resolution
+        function restartCameraWithResolution() {
+            if (!cameraStream) return;
+            stopCamera();
+            startCamera();
+        }
+
+        // Capture image from camera
+        function captureImage() {
+            if (!cameraStream) return;
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            const video = elements.cameraView;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            context.drawImage(video, 0, 0);
+            currentImage = canvas.toDataURL('image/jpeg');
+            currentFileName = `biker_capture_${new Date().getTime()}.jpg`;
+            
+            elements.imagePreview.src = currentImage;
+            elements.imagePreviewContainer.style.display = 'block';
+            elements.imageInfo.textContent = `Camera: ${canvas.width}x${canvas.height}`;
+            
+            // Flash effect
+            document.body.style.backgroundColor = 'rgba(255, 102, 0, 0.3)';
+            setTimeout(() => {
+                document.body.style.backgroundColor = '';
+            }, 300);
+            
+            stopCamera();
+            clearResults();
+            
+            showNotification(`Foto berhasil diambil! (${canvas.width}x${canvas.height})`, 'success');
+            playSoundEffect('shutter');
+        }
+
+        // ==================== EFFECTS & UTILITIES ====================
+        
+        // Create engine effect
+        function createEngineEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'headlight';
+            effect.style.cssText = `
+                position: fixed;
+                width: 30px;
+                height: 30px;
+                left: ${x - 15}px;
+                top: ${y - 15}px;
+                pointer-events: none;
+                z-index: 1000;
+            `;
+            document.body.appendChild(effect);
+            
+            setTimeout(() => {
+                effect.style.opacity = '0';
+                effect.style.transform = 'scale(2)';
+                setTimeout(() => effect.remove(), 300);
+            }, 100);
+        }
+
+        // Create engine rev effect
+        function createEngineRev() {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    const x = Math.random() * window.innerWidth;
+                    const y = Math.random() * window.innerHeight;
+                    createEngineEffect(x, y);
+                }, i * 100);
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            document.querySelectorAll('.biker-notification').forEach(n => n.remove());
+            
+            const notification = document.createElement('div');
+            notification.className = `biker-notification`;
+            
+            const colors = {
+                success: '#2E8B57',
+                error: '#D22B2B',
+                info: '#FF6600',
+                warning: '#FFA500'
+            };
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️',
+                warning: '⚠️'
+            };
+            
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 30px;">${icons[type]}</div>
+                    <div style="flex: 1;">
+                        <div style="color: ${colors[type]}; font-weight: bold; margin-bottom: 5px;">
+                            ${type.toUpperCase()}
+                        </div>
+                        <div style="color: #C0C0C0;">${message}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100px)';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Play sound effect
+        function playSoundEffect(type) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                if (type === 'shutter') {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.1);
+                }
+            } catch (err) {
+                // Sound effects not supported
+            }
+        }
+
+        // Messages for progress bar
+        const messages = [
+            'Menyiapkan engine...',
+            'Menganalisis gambar...',
+            'Mengenali teks...',
+            'Memproses hasil...',
+            'Selesai!'
+        ];
+
+        // ==================== INITIALIZATION ====================
+        
+        // Initialize application
+        async function initApp() {
+            // Initialize event listeners
+            initEventListeners();
+            
+            // Check server status
+            await checkServerStatus();
+            
+            // Welcome message
+            setTimeout(() => {
+                showNotification('Selamat datang di Biker OCR dengan Flask Server!', 'info');
+            }, 1000);
+            
+            // Add event listener for result area
+            elements.resultText.addEventListener('focus', () => {
+                elements.resultText.style.border = '2px solid var(--bike-orange)';
+            });
+            
+            elements.resultText.addEventListener('blur', () => {
+                elements.resultText.style.border = 'none';
+            });
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (worker) {
+                worker.terminate();
+            }
+            if (cameraStream) {
+                stopCamera();
+            }
+        });
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
